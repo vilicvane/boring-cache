@@ -1,0 +1,37 @@
+{
+  "name": "boring-cache",
+  "version": "0.1.0",
+  "description": "Boring & simple synchronous FS cache.",
+  "main": "bld/index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vilic/boring-cache.git"
+  },
+  "keywords": [
+    "fs",
+    "sync",
+    "cache"
+  ],
+  "author": "vilicvane",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/vilic/boring-cache/issues"
+  },
+  "homepage": "https://github.com/vilic/boring-cache#readme",
+  "files": [
+    "bld",
+    "!bld/**/*.js.map"
+  ],
+  "dependencies": {
+    "fs-extra": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^5.0.2",
+    "@types/node": "^9.6.6",
+    "prettier": "^1.12.1",
+    "tslint": "^5.9.1",
+    "tslint-language-service": "^0.9.9",
+    "typescript": "^2.8.3",
+    "vts": "^5.8.6"
+  }
+}
