@@ -10,7 +10,7 @@ interface Dict<T> {
 }
 
 export class BoringCache {
-  private data: Dict<CacheEntry>;
+  private data: Dict<CacheEntry | CacheEntry[]>;
 
   private writeDebounceTimer: NodeJS.Timer | undefined;
 
@@ -26,6 +26,11 @@ export class BoringCache {
 
   get<T = any>(key: string): T | undefined {
     let entry = this.data[key];
+
+    if (Array.isArray(entry)) {
+      return undefined;
+    }
+
     return entry && (!entry.expires || entry.expires > Date.now())
       ? entry.value
       : undefined;
@@ -36,6 +41,34 @@ export class BoringCache {
       value,
       expires: ttl === Infinity ? undefined : Date.now() + ttl,
     };
+
+    this.scheduleWrite();
+  }
+
+  list<T = any>(key: string): T[] {
+    let items = this.data[key];
+
+    if (!Array.isArray(items)) {
+      return [];
+    }
+
+    let now = Date.now();
+
+    return items
+      .filter(item => !item.expires || item.expires > now)
+      .map(item => item.value);
+  }
+
+  push<T = any>(key: string, value: T, ttl = Infinity): void {
+    let items = this.data[key];
+
+    this.data[key] = [
+      ...(Array.isArray(items) ? items : []),
+      {
+        value,
+        expires: ttl === Infinity ? undefined : Date.now() + ttl,
+      },
+    ];
 
     this.scheduleWrite();
   }
@@ -61,8 +94,18 @@ export class BoringCache {
     for (let key of Object.keys(data)) {
       let entry = data[key];
 
-      if (!entry || (entry.expires && entry.expires < now)) {
-        delete data[key];
+      if (Array.isArray(entry)) {
+        entry = entry.filter(item => !item.expires || item.expires > now);
+
+        if (entry.length) {
+          data[key] = entry;
+        } else {
+          delete data[key];
+        }
+      } else {
+        if (!entry || (entry.expires && entry.expires < now)) {
+          delete data[key];
+        }
       }
     }
 
