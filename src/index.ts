@@ -86,12 +86,12 @@ export class BoringCache {
       return;
     }
 
-    let filter =
+    let matcher =
       typeof value === 'function'
         ? value
         : (comparingValue: T) => comparingValue === value;
 
-    this.data[key] = items.filter(({value}) => filter(value));
+    this.data[key] = items.filter(({value}) => !matcher(value));
 
     this.scheduleWrite();
   }
