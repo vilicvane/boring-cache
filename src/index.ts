@@ -22,6 +22,12 @@ export class BoringCache {
       this.data = {};
       this.scheduleWrite();
     }
+
+    process.on('exit', () => {
+      if (this.writeDebounceTimer) {
+        this.save();
+      }
+    });
   }
 
   get<T = any>(key: string): T | undefined {
@@ -69,6 +75,23 @@ export class BoringCache {
         expires: ttl === Infinity ? undefined : Date.now() + ttl,
       },
     ];
+
+    this.scheduleWrite();
+  }
+
+  pull<T = any>(key: string, value: T | ((value: T) => boolean)): void {
+    let items = this.data[key];
+
+    if (!Array.isArray(items)) {
+      return;
+    }
+
+    let filter =
+      typeof value === 'function'
+        ? value
+        : (comparingValue: T) => comparingValue === value;
+
+    this.data[key] = items.filter(({value}) => filter(value));
 
     this.scheduleWrite();
   }
