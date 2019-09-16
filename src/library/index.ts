@@ -1,26 +1,47 @@
 import * as FS from 'fs-extra';
+import {Dict, KeyOfValueContainingType} from 'tslang';
+
+type __Element<T> = T extends unknown[] ? T[number] : never;
+
+type ValuePredicate<T> = ((value: T) => boolean) | T;
 
 interface CacheEntry {
-  value: any;
+  value: unknown;
   expires?: number;
 }
 
-interface Dict<T> {
-  [key: string]: T;
+export interface BoringCacheOptions<T extends object> {
+  /** Initial data. */
+  data?: T;
+  /** Time to live in milliseconds, defaults to `Infinity`. */
+  ttl?: number;
 }
 
-export class BoringCache {
+export class BoringCache<T extends object> {
+  readonly ttl: number;
+
   private data: Dict<CacheEntry | CacheEntry[]>;
 
-  private writeDebounceTimer: NodeJS.Timer | undefined;
+  private writeDebounceTimer: NodeJS.Immediate | undefined;
 
-  constructor(readonly path: string) {
+  constructor(path: string, options?: BoringCacheOptions<T>);
+  constructor(
+    readonly path: string,
+    {data, ttl = Infinity}: BoringCacheOptions<object> = {},
+  ) {
+    this.ttl = ttl;
+
     if (FS.existsSync(path)) {
       let json = FS.readFileSync(path, 'utf-8');
       this.data = JSON.parse(json);
     } else {
       this.data = {};
-      this.scheduleWrite();
+
+      for (let [key, value] of Object.entries(data || {})) {
+        this._set(key, value, ttl);
+      }
+
+      this.save();
     }
 
     process.on('exit', () => {
@@ -30,7 +51,8 @@ export class BoringCache {
     });
   }
 
-  get<T = any>(key: string): T | undefined {
+  get<TKey extends keyof T>(key: TKey): T[TKey];
+  get(key: string): unknown {
     let entry = this.data[key];
 
     if (Array.isArray(entry)) {
@@ -42,16 +64,17 @@ export class BoringCache {
       : undefined;
   }
 
-  set<T = any>(key: string, value: T, ttl = Infinity): void {
-    this.data[key] = {
-      value,
-      expires: ttl === Infinity ? undefined : Date.now() + ttl,
-    };
+  set<TKey extends keyof T>(key: TKey, value: T[TKey], ttl?: number): void;
+  set(key: string, value: unknown, ttl = Infinity): void {
+    this._set(key, value, ttl);
 
     this.scheduleWrite();
   }
 
-  list<T = any>(key: string): T[] {
+  list<TKey extends keyof KeyOfValueContainingType<T, unknown[]>>(
+    key: TKey,
+  ): TKey extends keyof T ? Extract<T[TKey], unknown[]> : [];
+  list(key: string): unknown {
     let items = this.data[key];
 
     if (!Array.isArray(items)) {
@@ -65,7 +88,12 @@ export class BoringCache {
       .map(item => item.value);
   }
 
-  push<T = any>(key: string, value: T, ttl = Infinity): void {
+  push<TKey extends keyof KeyOfValueContainingType<T, unknown[]>>(
+    key: TKey,
+    value: TKey extends keyof T ? __Element<T[TKey]> : never,
+    ttl?: number,
+  ): void;
+  push(key: string, value: unknown, ttl = Infinity): void {
     let items = this.data[key];
 
     this.data[key] = [
@@ -79,7 +107,11 @@ export class BoringCache {
     this.scheduleWrite();
   }
 
-  pull<T = any>(key: string, value: T | ((value: T) => boolean)): void {
+  pull<TKey extends keyof KeyOfValueContainingType<T, unknown[]>>(
+    key: TKey,
+    value: ValuePredicate<TKey extends keyof T ? __Element<T[TKey]> : never>,
+  ): void;
+  pull(key: string, value: unknown): void {
     let items = this.data[key];
 
     if (!Array.isArray(items)) {
@@ -89,13 +121,14 @@ export class BoringCache {
     let matcher =
       typeof value === 'function'
         ? value
-        : (comparingValue: T) => comparingValue === value;
+        : (comparingValue: T): boolean => comparingValue === value;
 
     this.data[key] = items.filter(({value}) => !matcher(value));
 
     this.scheduleWrite();
   }
 
+  delete<TKey extends keyof T>(key: TKey): void;
   delete(key: string): void {
     delete this.data[key];
     this.scheduleWrite();
@@ -107,7 +140,9 @@ export class BoringCache {
   }
 
   save(): void {
-    clearImmediate(this.writeDebounceTimer);
+    if (this.writeDebounceTimer) {
+      clearImmediate(this.writeDebounceTimer);
+    }
 
     this.writeDebounceTimer = undefined;
 
@@ -133,6 +168,13 @@ export class BoringCache {
     }
 
     FS.outputJSONSync(this.path, data);
+  }
+
+  private _set(key: string, value: unknown, ttl: number): void {
+    this.data[key] = {
+      value,
+      expires: ttl === Infinity ? undefined : Date.now() + ttl,
+    };
   }
 
   private scheduleWrite(): void {
