@@ -1,6 +1,6 @@
 {
   "name": "boring-cache",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Boring & simple synchronous FS cache.",
   "main": "bld/library/index.js",
   "types": "bld/library/index.d.ts",
