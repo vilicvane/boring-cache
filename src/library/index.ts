@@ -1,7 +1,7 @@
 import * as FS from 'fs-extra';
 import {Dict, KeyOfValueContainingType} from 'tslang';
 
-type __Element<T> = T extends unknown[] ? T[number] : never;
+type __Element<T> = T extends any[] ? T[number] : never;
 
 type ValuePredicate<T> = ((value: T) => boolean) | T;
 
@@ -71,9 +71,9 @@ export class BoringCache<T extends object> {
     this.scheduleWrite();
   }
 
-  list<TKey extends keyof KeyOfValueContainingType<T, unknown[]>>(
+  list<TKey extends KeyOfValueContainingType<T, any[]>>(
     key: TKey,
-  ): TKey extends keyof T ? Extract<T[TKey], unknown[]> : [];
+  ): TKey extends keyof T ? Extract<T[TKey], any[]> : [];
   list(key: string): unknown {
     let items = this.data[key];
 
@@ -88,7 +88,7 @@ export class BoringCache<T extends object> {
       .map(item => item.value);
   }
 
-  push<TKey extends keyof KeyOfValueContainingType<T, unknown[]>>(
+  push<TKey extends KeyOfValueContainingType<T, any[]>>(
     key: TKey,
     value: TKey extends keyof T ? __Element<T[TKey]> : never,
     ttl?: number,
@@ -107,7 +107,7 @@ export class BoringCache<T extends object> {
     this.scheduleWrite();
   }
 
-  pull<TKey extends keyof KeyOfValueContainingType<T, unknown[]>>(
+  pull<TKey extends KeyOfValueContainingType<T, any[]>>(
     key: TKey,
     value: ValuePredicate<TKey extends keyof T ? __Element<T[TKey]> : never>,
   ): void;
